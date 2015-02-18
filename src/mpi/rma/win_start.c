@@ -96,6 +96,7 @@ int MPI_Win_start(MPI_Group group, int assert, MPI_Win win)
     int i;
 
     MTCORE_DBG_PRINT_FCNAME();
+    MTCORE_RM_COUNT(MTCORE_RM_COMM_FREQ);
 
     MTCORE_Fetch_uh_win_from_cache(win, uh_win);
 

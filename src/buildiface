@@ -192,6 +192,7 @@ while (<INFILE>) {
         print CFILE ")\n{\n";
 
 	if ($comm_arg >= 0) {
+	    print CFILE "${tab}MTCORE_RM_COUNT(MTCORE_RM_COMM_FREQ);\n";
 	    print CFILE "${tab}if (x$comm_arg == MPI_COMM_WORLD)\n${tab}${tab}return P$routine(";
 	    for ($x = 0; $x <= $#arglist; $x++) {
 		if ($x == $comm_arg) {

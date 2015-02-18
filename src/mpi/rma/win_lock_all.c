@@ -112,6 +112,7 @@ int MPI_Win_lock_all(int assert, MPI_Win win)
     int i, j, k;
 
     MTCORE_DBG_PRINT_FCNAME();
+    MTCORE_RM_COUNT(MTCORE_RM_COMM_FREQ);
 
     MTCORE_Fetch_uh_win_from_cache(win, uh_win);
 

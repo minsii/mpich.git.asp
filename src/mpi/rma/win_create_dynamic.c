@@ -13,6 +13,7 @@ int MPI_Win_create_dynamic(MPI_Info info, MPI_Comm comm, MPI_Win * win)
     int mpi_errno = MPI_SUCCESS;
 
     MTCORE_DBG_PRINT_FCNAME();
+    MTCORE_RM_COUNT(MTCORE_RM_COMM_FREQ);
 
     if (comm == MPI_COMM_WORLD)
         comm = MTCORE_COMM_USER_WORLD;

@@ -94,6 +94,9 @@ int MPI_Win_post(MPI_Group group, int assert, MPI_Win win)
     int post_grp_size = 0;
     int i;
 
+    MTCORE_DBG_PRINT_FCNAME();
+    MTCORE_RM_COUNT(MTCORE_RM_COMM_FREQ);
+
     MTCORE_Fetch_uh_win_from_cache(win, uh_win);
 
     if (uh_win == NULL) {

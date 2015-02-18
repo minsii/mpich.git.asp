@@ -712,6 +712,7 @@ int MPI_Win_allocate(MPI_Aint size, int disp_unit, MPI_Info info,
     int tmp_bcast_buf[2];
 
     MTCORE_DBG_PRINT_FCNAME();
+    MTCORE_RM_COUNT(MTCORE_RM_COMM_FREQ);
 
     uh_win = calloc(1, sizeof(MTCORE_Win));
 

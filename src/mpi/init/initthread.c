@@ -30,6 +30,10 @@ MTCORE_Define_win_cache;
 /* TODO: Move load balancing option into env setting */
 MTCORE_Env_param MTCORE_ENV;
 
+#ifdef MTCORE_ENABLE_RM
+/* local runtime monitor */
+MTCORE_Rm MTCORE_RM[MTCORE_RM_MAX_TYPE];
+#endif
 static int MTCORE_Initialize_env()
 {
     char *val;
@@ -313,6 +317,7 @@ int MPI_Init_thread(int *argc, char ***argv, int required, int *provided)
                          local_user_nprocs, MTCORE_MY_NODE_ID);
 
         MTCORE_Init_win_cache();
+        MTCORE_RM_RESET_ALL();
     }
     /* Helper processes */
     /* TODO: Helper process should not run user program */

@@ -196,6 +196,7 @@ int MPI_Put(const void *origin_addr, int origin_count,
     MTCORE_Win *uh_win;
 
     MTCORE_DBG_PRINT_FCNAME();
+    MTCORE_RM_COUNT(MTCORE_RM_COMM_FREQ);
 
     MTCORE_Fetch_uh_win_from_cache(win, uh_win);
 

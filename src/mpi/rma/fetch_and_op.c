@@ -151,6 +151,7 @@ int MPI_Fetch_and_op(const void *origin_addr, void *result_addr,
     MTCORE_Win *uh_win;
 
     MTCORE_DBG_PRINT_FCNAME();
+    MTCORE_RM_COUNT(MTCORE_RM_COMM_FREQ);
 
     MTCORE_Fetch_uh_win_from_cache(win, uh_win);
 

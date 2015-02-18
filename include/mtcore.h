@@ -703,4 +703,38 @@ extern int MTCORE_Op_segments_decode_basic_datatype(const void *origin_addr, int
 extern void MTCORE_Op_segments_destroy(MTCORE_OP_Segment ** decoded_ops_ptr);
 extern int MTCORE_Fence_win_release_locks(MTCORE_Win * uh_win);
 
+typedef enum {
+    MTCORE_RM_COMM_FREQ,
+    MTCORE_RM_MAX_TYPE,
+} MTCORE_Rm_type;
+
+#ifdef MTCORE_ENABLE_RM
+typedef struct {
+    unsigned long long cnt;
+    double timer_sta;
+} MTCORE_Rm;
+
+/* local runtime monitor */
+extern MTCORE_Rm MTCORE_RM[MTCORE_RM_MAX_TYPE];
+static inline void MTCORE_RM_COUNT(MTCORE_Rm_type type)
+{
+    MTCORE_RM[type].cnt++;
+}
+
+static inline void MTCORE_RM_RESET(MTCORE_Rm_type type)
+{
+    MTCORE_RM[type].cnt = 0;
+    MTCORE_RM[type].timer_sta = PMPI_Wtime();
+}
+
+static inline void MTCORE_RM_RESET_ALL()
+{
+    memset(MTCORE_RM, 0, sizeof(MTCORE_RM));
+}
+#else
+#define MTCORE_RM_COUNT(type) {/*do nothing */}
+#define MTCORE_RM_RESET(type) {/*do nothing */}
+#define MTCORE_RM_RESET_ALL() {/*do nothing */}
+#endif
+
 #endif /* MTCORE_H_ */
