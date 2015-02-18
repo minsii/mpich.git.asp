@@ -53,6 +53,20 @@ int MPI_Win_unlock(int target_rank, MPI_Win win)
 
     uh_win->targets[target_rank].remote_lock_assert = 0;
 
+    /* If target is in async-off state, simply unlock target on the internal window */
+    if (uh_win->targets[target_rank].async_stat == MTCORE_ASYNC_STAT_OFF) {
+        mpi_errno = PMPI_Win_unlock(uh_win->targets[user_rank].uh_rank,
+                                    uh_win->targets[target_rank].uh_win);
+        if (mpi_errno != MPI_SUCCESS)
+            goto fn_fail;
+
+        MTCORE_DBG_PRINT("[%d]unlock(uh_win 0x%x, target %d), instead of target rank %d\n",
+                         user_rank, uh_win->targets[target_rank].uh_win,
+                         uh_win->targets[target_rank].uh_rank, target_rank);
+
+        goto unlock_done;
+    }
+
     /* Unlock all helper processes in every uh-window of target process. */
     j = 0;
 #ifdef MTCORE_ENABLE_SYNC_ALL_OPT
@@ -96,6 +110,8 @@ int MPI_Win_unlock(int target_rank, MPI_Win win)
         uh_win->targets[target_rank].segs[j].main_lock_stat = MTCORE_MAIN_LOCK_RESET;
     }
 #endif
+
+  unlock_done:
 
     /* Decrease lock/lockall counter, change epoch status only when counter
      * become 0. */

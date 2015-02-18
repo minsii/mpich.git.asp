@@ -413,6 +413,7 @@ static int create_communicators(MTCORE_Win * uh_win)
     int *func_params = NULL, func_param_size = 0;
     int *user_ranks_in_world = NULL;
     int *helper_ranks_in_world = NULL;
+    int *user_ranks_in_uh = NULL;
     int num_helpers = 0, max_num_helpers;
     int user_nprocs, user_local_rank;
     int *helper_ranks_in_uh = NULL;
@@ -457,11 +458,21 @@ static int create_communicators(MTCORE_Win * uh_win)
             memcpy(uh_win->targets[i].h_ranks_in_uh,
                    &MTCORE_ALL_H_RANKS_IN_WORLD[i * MTCORE_ENV.num_h],
                    sizeof(int) * MTCORE_ENV.num_h);
+
+        /* -Get all user rank in uh communicator */
+        for (i = 0; i < user_nprocs; i++)
+            uh_win->targets[i].uh_rank = MTCORE_USER_RANKS_IN_WORLD[i];
     }
     else {
         /* helper ranks for every user process, used for helper fetching in epoch */
         helper_ranks_in_world = calloc(MTCORE_ENV.num_h * user_nprocs, sizeof(int));
         helper_ranks_in_uh = calloc(MTCORE_ENV.num_h * user_nprocs, sizeof(int));
+        user_ranks_in_world = calloc(user_nprocs, sizeof(int));
+        user_ranks_in_uh = calloc(user_nprocs, sizeof(int));
+
+        for (i = 0; i < user_nprocs; i++) {
+            user_ranks_in_world[i] = uh_win->targets[i].world_rank;
+        }
 
         /* Gather user rank information */
         mpi_errno = gather_ranks(uh_win, &num_helpers, helper_ranks_in_world,
@@ -470,11 +481,6 @@ static int create_communicators(MTCORE_Win * uh_win)
             goto fn_fail;
 
         if (user_local_rank == 0) {
-
-            user_ranks_in_world = calloc(user_nprocs, sizeof(int));
-            for (i = 0; i < user_nprocs; i++) {
-                user_ranks_in_world[i] = uh_win->targets[i].world_rank;
-            }
 
             /* Set parameters to local Helpers
              *  [0]: is_comm_user_world
@@ -540,6 +546,15 @@ static int create_communicators(MTCORE_Win * uh_win)
         for (i = 0; i < user_nprocs; i++)
             memcpy(uh_win->targets[i].h_ranks_in_uh, &helper_ranks_in_uh[i * MTCORE_ENV.num_h],
                    sizeof(int) * MTCORE_ENV.num_h);
+
+        /* -Get all user rank in uh communicator */
+        mpi_errno = PMPI_Group_translate_ranks(MTCORE_GROUP_WORLD, user_nprocs,
+                                               user_ranks_in_world, uh_win->uh_group,
+                                               user_ranks_in_uh);
+        if (mpi_errno != MPI_SUCCESS)
+            goto fn_fail;
+        for (i = 0; i < user_nprocs; i++)
+            uh_win->targets[i].uh_rank = user_ranks_in_uh[i];
     }
 
 #ifdef DEBUG
@@ -556,6 +571,8 @@ static int create_communicators(MTCORE_Win * uh_win)
         free(func_params);
     if (user_ranks_in_world)
         free(user_ranks_in_world);
+    if (user_ranks_in_uh)
+        free(user_ranks_in_uh);
     if (helper_ranks_in_world)
         free(helper_ranks_in_world);
     if (helper_ranks_in_uh)
@@ -695,6 +712,71 @@ static int create_lock_windows(MPI_Aint size, int disp_unit, MPI_Info info, MTCO
     goto fn_exit;
 }
 
+static int clean_up_uh_win(int user_nprocs, MTCORE_Win * uh_win)
+{
+    int i;
+
+    if (uh_win->local_uh_win)
+        PMPI_Win_free(&uh_win->local_uh_win);
+    if (uh_win->win)
+        PMPI_Win_free(&uh_win->win);
+    if (uh_win->active_win)
+        PMPI_Win_free(&uh_win->active_win);
+    if (uh_win->num_uh_wins > 0 && uh_win->uh_wins) {
+        for (i = 0; i < uh_win->num_uh_wins; i++) {
+            if (uh_win->uh_wins)
+                PMPI_Win_free(&uh_win->uh_wins[i]);
+        }
+    }
+
+    if (uh_win->ur_h_comm && uh_win->ur_h_comm != MPI_COMM_NULL)
+        PMPI_Comm_free(&uh_win->ur_h_comm);
+    if (uh_win->local_uh_comm && uh_win->local_uh_comm != MTCORE_COMM_LOCAL)
+        PMPI_Comm_free(&uh_win->local_uh_comm);
+    if (uh_win->uh_comm != MPI_COMM_NULL)
+        PMPI_Comm_free(&uh_win->uh_comm);
+    if (uh_win->uh_group != MPI_GROUP_NULL)
+        PMPI_Group_free(&uh_win->uh_group);
+    if (uh_win->local_user_comm && uh_win->local_user_comm != MTCORE_COMM_USER_LOCAL)
+        PMPI_Comm_free(&uh_win->local_user_comm);
+    if (uh_win->user_root_comm && uh_win->user_root_comm != MTCORE_COMM_UR_WORLD)
+        PMPI_Comm_free(&uh_win->user_root_comm);
+
+    if (uh_win->local_uh_group != MPI_GROUP_NULL)
+        PMPI_Group_free(&uh_win->local_uh_group);
+    if (uh_win->uh_group != MPI_GROUP_NULL)
+        PMPI_Group_free(&uh_win->uh_group);
+    if (uh_win->user_group != MPI_GROUP_NULL)
+        PMPI_Group_free(&uh_win->user_group);
+
+#if defined(MTCORE_ENABLE_RUNTIME_LOAD_OPT)
+    if (uh_win->h_ops_counts)
+        free(uh_win->h_ops_counts);
+    if (uh_win->h_bytes_counts)
+        free(uh_win->h_bytes_counts);
+#endif
+
+    if (uh_win->targets) {
+        for (i = 0; i < user_nprocs; i++) {
+            if (uh_win->targets[i].base_h_offsets)
+                free(uh_win->targets[i].base_h_offsets);
+            if (uh_win->targets[i].h_ranks_in_uh)
+                free(uh_win->targets[i].h_ranks_in_uh);
+            if (uh_win->targets[i].segs)
+                free(uh_win->targets[i].segs);
+        }
+        free(uh_win->targets);
+    }
+    if (uh_win->h_ranks_in_uh)
+        free(uh_win->h_ranks_in_uh);
+    if (uh_win->h_win_handles)
+        free(uh_win->h_win_handles);
+    if (uh_win->uh_wins)
+        free(uh_win->uh_wins);
+    if (uh_win)
+        free(uh_win);
+}
+
 int MPI_Win_allocate(MPI_Aint size, int disp_unit, MPI_Info info,
                      MPI_Comm user_comm, void *baseptr, MPI_Win * win)
 {
@@ -707,8 +789,10 @@ int MPI_Win_allocate(MPI_Aint size, int disp_unit, MPI_Info info,
     int i, j;
     void **base_pp = (void **) baseptr;
     MPI_Status stat;
+    MTCORE_Async_stat my_async_stat = MTCORE_ASYNC_STAT_ON;
+    int all_targets_async_off = 1;
     MPI_Aint *tmp_gather_buf = NULL;
-    ;
+    int tmp_gather_cnt = 8;
     int tmp_bcast_buf[2];
 
     MTCORE_DBG_PRINT_FCNAME();
@@ -731,6 +815,13 @@ int MPI_Win_allocate(MPI_Aint size, int disp_unit, MPI_Info info,
         free(uh_win);
         goto fn_exit;
     }
+
+    /* Only schedule local asynchronous state when user enables auto_async_config
+     * and does not force this window to turn on the asynchronous redirection.*/
+    if (MTCORE_ENV.auto_async_sched && uh_win->info_args.enable_async != 2) {
+        my_async_stat = MTCORE_Sched_my_async_stat();
+    }
+
     /* If user specifies comm_world directly, use user comm_world instead;
      * else this communicator directly, because it should be created from user comm_world */
     if (user_comm == MPI_COMM_WORLD) {
@@ -788,27 +879,31 @@ int MPI_Win_allocate(MPI_Aint size, int disp_unit, MPI_Info info,
     }
 
     /* Gather users' disp_unit, size, ranks and node_id */
-    tmp_gather_buf = calloc(user_nprocs * 7, sizeof(MPI_Aint));
-    tmp_gather_buf[7 * user_rank] = (MPI_Aint) disp_unit;
-    tmp_gather_buf[7 * user_rank + 1] = size;   /* MPI_Aint, size in bytes */
-    tmp_gather_buf[7 * user_rank + 2] = (MPI_Aint) user_local_rank;
-    tmp_gather_buf[7 * user_rank + 3] = (MPI_Aint) world_rank;
-    tmp_gather_buf[7 * user_rank + 4] = (MPI_Aint) user_world_rank;
-    tmp_gather_buf[7 * user_rank + 5] = (MPI_Aint) uh_win->node_id;
-    tmp_gather_buf[7 * user_rank + 6] = (MPI_Aint) user_local_nprocs;
+    tmp_gather_buf = calloc(user_nprocs * tmp_gather_cnt, sizeof(MPI_Aint));
+    tmp_gather_buf[tmp_gather_cnt * user_rank] = (MPI_Aint) disp_unit;
+    tmp_gather_buf[tmp_gather_cnt * user_rank + 1] = size;      /* MPI_Aint, size in bytes */
+    tmp_gather_buf[tmp_gather_cnt * user_rank + 2] = (MPI_Aint) user_local_rank;
+    tmp_gather_buf[tmp_gather_cnt * user_rank + 3] = (MPI_Aint) world_rank;
+    tmp_gather_buf[tmp_gather_cnt * user_rank + 4] = (MPI_Aint) user_world_rank;
+    tmp_gather_buf[tmp_gather_cnt * user_rank + 5] = (MPI_Aint) uh_win->node_id;
+    tmp_gather_buf[tmp_gather_cnt * user_rank + 6] = (MPI_Aint) user_local_nprocs;
+    tmp_gather_buf[tmp_gather_cnt * user_rank + 7] = (MPI_Aint) my_async_stat;
 
     mpi_errno = PMPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
-                               tmp_gather_buf, 7, MPI_AINT, user_comm);
+                               tmp_gather_buf, tmp_gather_cnt, MPI_AINT, user_comm);
     if (mpi_errno != MPI_SUCCESS)
         goto fn_fail;
     for (i = 0; i < user_nprocs; i++) {
-        uh_win->targets[i].disp_unit = (int) tmp_gather_buf[7 * i];
-        uh_win->targets[i].size = tmp_gather_buf[7 * i + 1];
-        uh_win->targets[i].local_user_rank = (int) tmp_gather_buf[7 * i + 2];
-        uh_win->targets[i].world_rank = (int) tmp_gather_buf[7 * i + 3];
-        uh_win->targets[i].user_world_rank = (int) tmp_gather_buf[7 * i + 4];
-        uh_win->targets[i].node_id = (int) tmp_gather_buf[7 * i + 5];
-        uh_win->targets[i].local_user_nprocs = (int) tmp_gather_buf[7 * i + 6];
+        uh_win->targets[i].disp_unit = (int) tmp_gather_buf[tmp_gather_cnt * i];
+        uh_win->targets[i].size = tmp_gather_buf[tmp_gather_cnt * i + 1];
+        uh_win->targets[i].local_user_rank = (int) tmp_gather_buf[tmp_gather_cnt * i + 2];
+        uh_win->targets[i].world_rank = (int) tmp_gather_buf[tmp_gather_cnt * i + 3];
+        uh_win->targets[i].user_world_rank = (int) tmp_gather_buf[tmp_gather_cnt * i + 4];
+        uh_win->targets[i].node_id = (int) tmp_gather_buf[tmp_gather_cnt * i + 5];
+        uh_win->targets[i].local_user_nprocs = (int) tmp_gather_buf[tmp_gather_cnt * i + 6];
+        uh_win->targets[i].async_stat = (MTCORE_Async_stat) tmp_gather_buf[tmp_gather_cnt
+                                                                           * user_rank + 7];
+        all_targets_async_off &= (uh_win->targets[i].async_stat == MTCORE_ASYNC_STAT_OFF);
 
         /* Calculate the maximum number of processes per node */
         uh_win->max_local_user_nprocs = max(uh_win->max_local_user_nprocs,
@@ -829,6 +924,14 @@ int MPI_Win_allocate(MPI_Aint size, int disp_unit, MPI_Info info,
     }
 #endif
 
+    /* If the asynchronous states on all processes are off, simply return normal window; */
+    if (all_targets_async_off) {
+        mpi_errno = PMPI_Win_allocate(size, disp_unit, info, user_comm, baseptr, win);
+        MTCORE_DBG_PRINT("All async off in win_allocate, return normal win 0x%x\n", *win);
+
+        clean_up_uh_win(user_nprocs, uh_win);
+        goto fn_exit;
+    }
 
     /* Notify Helpers start and create user root + helpers communicator for
      * internal information exchange between users and helpers. */
@@ -961,66 +1064,7 @@ int MPI_Win_allocate(MPI_Aint size, int disp_unit, MPI_Info info,
 
     /* Caching is the last possible error, so we do not need remove
      * cache here. */
-
-    if (uh_win->local_uh_win)
-        PMPI_Win_free(&uh_win->local_uh_win);
-    if (uh_win->win)
-        PMPI_Win_free(&uh_win->win);
-    if (uh_win->active_win)
-        PMPI_Win_free(&uh_win->active_win);
-    if (uh_win->num_uh_wins > 0 && uh_win->uh_wins) {
-        for (i = 0; i < uh_win->num_uh_wins; i++) {
-            if (uh_win->uh_wins)
-                PMPI_Win_free(&uh_win->uh_wins[i]);
-        }
-    }
-
-    if (uh_win->ur_h_comm && uh_win->ur_h_comm != MPI_COMM_NULL)
-        PMPI_Comm_free(&uh_win->ur_h_comm);
-    if (uh_win->local_uh_comm && uh_win->local_uh_comm != MTCORE_COMM_LOCAL)
-        PMPI_Comm_free(&uh_win->local_uh_comm);
-    if (uh_win->uh_comm != MPI_COMM_NULL)
-        PMPI_Comm_free(&uh_win->uh_comm);
-    if (uh_win->uh_group != MPI_GROUP_NULL)
-        PMPI_Group_free(&uh_win->uh_group);
-    if (uh_win->local_user_comm && uh_win->local_user_comm != MTCORE_COMM_USER_LOCAL)
-        PMPI_Comm_free(&uh_win->local_user_comm);
-    if (uh_win->user_root_comm && uh_win->user_root_comm != MTCORE_COMM_UR_WORLD)
-        PMPI_Comm_free(&uh_win->user_root_comm);
-
-    if (uh_win->local_uh_group != MPI_GROUP_NULL)
-        PMPI_Group_free(&uh_win->local_uh_group);
-    if (uh_win->uh_group != MPI_GROUP_NULL)
-        PMPI_Group_free(&uh_win->uh_group);
-    if (uh_win->user_group != MPI_GROUP_NULL)
-        PMPI_Group_free(&uh_win->user_group);
-
-#if defined(MTCORE_ENABLE_RUNTIME_LOAD_OPT)
-    if (uh_win->h_ops_counts)
-        free(uh_win->h_ops_counts);
-    if (uh_win->h_bytes_counts)
-        free(uh_win->h_bytes_counts);
-#endif
-
-    if (uh_win->targets) {
-        for (i = 0; i < user_nprocs; i++) {
-            if (uh_win->targets[i].base_h_offsets)
-                free(uh_win->targets[i].base_h_offsets);
-            if (uh_win->targets[i].h_ranks_in_uh)
-                free(uh_win->targets[i].h_ranks_in_uh);
-            if (uh_win->targets[i].segs)
-                free(uh_win->targets[i].segs);
-        }
-        free(uh_win->targets);
-    }
-    if (uh_win->h_ranks_in_uh)
-        free(uh_win->h_ranks_in_uh);
-    if (uh_win->h_win_handles)
-        free(uh_win->h_win_handles);
-    if (uh_win->uh_wins)
-        free(uh_win->uh_wins);
-    if (uh_win)
-        free(uh_win);
+    clean_up_uh_win(user_nprocs, uh_win);
 
     *win = MPI_WIN_NULL;
     *base_pp = NULL;

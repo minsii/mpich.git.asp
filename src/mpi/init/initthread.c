@@ -34,6 +34,10 @@ MTCORE_Env_param MTCORE_ENV;
 /* local runtime monitor */
 MTCORE_Rm MTCORE_RM[MTCORE_RM_MAX_TYPE];
 #endif
+
+/* asynchronous state scheduling, enable async by default */
+MTCORE_Async_stat MTCORE_MY_ASYNC_STAT = MTCORE_ASYNC_STAT_ON;
+
 static int MTCORE_Initialize_env()
 {
     char *val;
@@ -115,6 +119,50 @@ static int MTCORE_Initialize_env()
     MTCORE_ENV.load_opt = MTCORE_LOAD_OPT_STATIC;
     MTCORE_ENV.load_lock = MTCORE_LOAD_LOCK_NATURE;
 #endif
+
+    MTCORE_ENV.auto_async_sched = 0;
+    MTCORE_ENV.auto_async_sched_thr_h = MTCORE_SCHED_ASYNC_THRESHOLD_DEFAULT_FREQ;
+    MTCORE_ENV.auto_async_sched_thr_l = MTCORE_SCHED_ASYNC_THRESHOLD_DEFAULT_FREQ;
+
+    val = getenv("MTCORE_AUTO_ASYNC_SCHED");
+    if (val && strlen(val)) {
+        if (!strncmp(val, "y", strlen("y")) || !strncmp(val, "Y", strlen("Y"))) {
+            MTCORE_ENV.auto_async_sched = 1;
+        }
+    }
+
+    if (MTCORE_ENV.auto_async_sched == 1) {
+
+        /* Read user defined thresholds */
+        val = getenv("MTCORE_AUTO_ASYNC_SCHED_THR_H");
+        if (val && strlen(val)) {
+            MTCORE_ENV.auto_async_sched_thr_h = atoll(val);
+            if (MTCORE_ENV.auto_async_sched_thr_h <= 0) {
+                fprintf(stderr, "Wrong MTCORE_AUTO_ASYNC_SCHED_THR_H %lld\n",
+                        MTCORE_ENV.auto_async_sched_thr_h);
+                return -1;
+            }
+        }
+        val = getenv("MTCORE_AUTO_ASYNC_SCHED_THR_L");
+        if (val && strlen(val)) {
+            MTCORE_ENV.auto_async_sched_thr_l = atoll(val);
+            if (MTCORE_ENV.auto_async_sched_thr_l <= 0) {
+                fprintf(stderr, "Wrong MTCORE_AUTO_ASYNC_SCHED_THR_L %lld\n",
+                        MTCORE_ENV.auto_async_sched_thr_l);
+                return -1;
+            }
+        }
+
+        if (MTCORE_ENV.auto_async_sched_thr_l > MTCORE_ENV.auto_async_sched_thr_h) {
+            /* Disable two-level threshold */
+            MTCORE_ENV.auto_async_sched_thr_l = MTCORE_ENV.auto_async_sched_thr_h;
+        }
+
+        if (MTCORE_MY_RANK_IN_WORLD == 0) {
+            MTCORE_WARN_PRINT("MTCORE_AUTO_ASYNC_SCHED on, high %lld, low %lld \n",
+                              MTCORE_ENV.auto_async_sched_thr_h, MTCORE_ENV.auto_async_sched_thr_l);
+        }
+    }
 
     MTCORE_DBG_PRINT("ENV: seg_size=%d, lock_binding=%d, load_lock=%d, load_opt=%d, "
                      "num_h=%d\n", MTCORE_ENV.seg_size, MTCORE_ENV.lock_binding,

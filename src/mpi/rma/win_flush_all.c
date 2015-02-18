@@ -139,6 +139,17 @@ int MPI_Win_flush_all(MPI_Win win)
             if (mpi_errno != MPI_SUCCESS)
                 goto fn_fail;
         }
+
+        if (MTCORE_ENV.auto_async_sched) {
+            /* flush targets which are in async-off state  */
+            for (i = 0; i < user_nprocs; i++) {
+                if (uh_win->targets[i].async_stat == MTCORE_ASYNC_STAT_OFF) {
+                    mpi_errno = PMPI_Win_flush(uh_win->targets[i].uh_rank, uh_win->uh_wins[0]);
+                    if (mpi_errno != MPI_SUCCESS)
+                        goto fn_fail;
+                }
+            }
+        }
 #endif
 
 #ifdef MTCORE_ENABLE_LOCAL_LOCK_OPT

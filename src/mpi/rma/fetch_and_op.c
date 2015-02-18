@@ -155,15 +155,27 @@ int MPI_Fetch_and_op(const void *origin_addr, void *result_addr,
 
     MTCORE_Fetch_uh_win_from_cache(win, uh_win);
 
-    if (uh_win) {
+    if (uh_win == NULL) {
+        mpi_errno = PMPI_Fetch_and_op(origin_addr, result_addr, datatype, target_rank,
+                                      target_disp, op, win);
+    }
+    /* If the target is in async-off state, directly send to the target via internal window. */
+    else if (uh_win->targets[target_rank].async_stat == MTCORE_ASYNC_STAT_OFF) {
+        MPI_Win *win_ptr = NULL;
+        MTCORE_Get_epoch_win(target_rank, 0, uh_win, win_ptr);
+
+        mpi_errno = PMPI_Fetch_and_op(origin_addr, result_addr, datatype,
+                                      uh_win->targets[target_rank].uh_rank,
+                                      target_disp, op, *win_ptr);
+        MTCORE_DBG_PRINT("Fetch_and_op to (target %d, win 0x%x [%s]) "
+                         "instead of target %d\n",
+                         uh_win->targets[target_rank].uh_rank, *win_ptr,
+                         MTCORE_Win_epoch_stat_name[uh_win->epoch_stat], target_rank);
+    }
+    else {
         /* mtcore window */
         mpi_errno = MTCORE_Fetch_and_op_impl(origin_addr, result_addr, datatype, target_rank,
                                              target_disp, op, win, uh_win);
-    }
-    else {
-        /* normal window */
-        mpi_errno = PMPI_Fetch_and_op(origin_addr, result_addr, datatype, target_rank,
-                                      target_disp, op, win);
     }
   fn_exit:
 

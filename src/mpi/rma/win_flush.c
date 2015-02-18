@@ -25,6 +25,20 @@ int MPI_Win_flush(int target_rank, MPI_Win win)
                   (uh_win->info_args.epoch_type & MTCORE_EPOCH_LOCK_ALL));
 
     PMPI_Comm_rank(uh_win->user_comm, &user_rank);
+
+    /* only flush target if it is in async-off state  */
+    if (uh_win->targets[target_rank].async_stat == MTCORE_ASYNC_STAT_OFF) {
+        mpi_errno = PMPI_Win_flush(uh_win->targets[target_rank].uh_rank,
+                                   uh_win->targets[target_rank].uh_win);
+        if (mpi_errno != MPI_SUCCESS)
+            goto fn_fail;
+
+        MTCORE_DBG_PRINT("[%d]flush(uh_win 0x%x, target %d), instead of target rank %d\n",
+                         user_rank, uh_win->targets[target_rank].uh_win,
+                         uh_win->targets[target_rank].uh_rank, target_rank);
+        goto fn_exit;
+    }
+
 #ifdef MTCORE_ENABLE_LOCAL_LOCK_OPT
     if (user_rank == target_rank && uh_win->is_self_locked) {
 

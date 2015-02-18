@@ -88,20 +88,34 @@ int MPI_Get_accumulate(const void *origin_addr, int origin_count, MPI_Datatype o
 
     MTCORE_Fetch_uh_win_from_cache(win, uh_win);
 
-    if (uh_win) {
+    if (uh_win == NULL) {
+        mpi_errno = PMPI_Get_accumulate(origin_addr, origin_count, origin_datatype,
+                                        result_addr, result_count, result_datatype,
+                                        target_rank, target_disp, target_count,
+                                        target_datatype, op, win);
+    }
+    /* If the target is in async-off state, directly send to the target via internal window. */
+    else if (uh_win->targets[target_rank].async_stat == MTCORE_ASYNC_STAT_OFF) {
+        MPI_Win *win_ptr = NULL;
+        MTCORE_Get_epoch_win(target_rank, 0, uh_win, win_ptr);
+
+        mpi_errno = PMPI_Get_accumulate(origin_addr, origin_count, origin_datatype,
+                                        result_addr, result_count, result_datatype,
+                                        uh_win->targets[target_rank].uh_rank, target_disp,
+                                        target_count, target_datatype, op, *win_ptr);
+        MTCORE_DBG_PRINT("Get_accumulate to (target %d, win 0x%x [%s]) "
+                         "instead of target %d\n",
+                         uh_win->targets[target_rank].uh_rank, *win_ptr,
+                         MTCORE_Win_epoch_stat_name[uh_win->epoch_stat], target_rank);
+    }
+    else {
         /* mtcore window */
         mpi_errno = MTCORE_Get_accumulate_impl(origin_addr, origin_count, origin_datatype,
                                                result_addr, result_count, result_datatype,
                                                target_rank, target_disp, target_count,
                                                target_datatype, op, win, uh_win);
     }
-    else {
-        /* normal window */
-        mpi_errno = PMPI_Get_accumulate(origin_addr, origin_count, origin_datatype,
-                                        result_addr, result_count, result_datatype,
-                                        target_rank, target_disp, target_count,
-                                        target_datatype, op, win);
-    }
+
   fn_exit:
 
     return mpi_errno;

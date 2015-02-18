@@ -50,6 +50,20 @@ int MPI_Win_lock(int lock_type, int target_rank, int assert, MPI_Win win)
     MTCORE_DBG_PRINT("[%d]lock(%d), MPI_MODE_NOCHECK %d(assert %d)\n", user_rank,
                      target_rank, (assert & MPI_MODE_NOCHECK) != 0, assert);
 
+    /* If target is in async-off state, simply lock target on the internal window */
+    if (uh_win->targets[target_rank].async_stat == MTCORE_ASYNC_STAT_OFF) {
+        mpi_errno = PMPI_Win_lock(lock_type, uh_win->targets[user_rank].uh_rank, assert,
+                                  uh_win->targets[target_rank].uh_win);
+        if (mpi_errno != MPI_SUCCESS)
+            goto fn_fail;
+
+        MTCORE_DBG_PRINT("[%d]lock(uh_win 0x%x, target %d), instead of target rank %d\n",
+                         user_rank, uh_win->targets[target_rank].uh_win,
+                         uh_win->targets[target_rank].uh_rank, target_rank);
+
+        goto lock_done;
+    }
+
     /* Lock Helper processes in corresponding uh-window of target process. */
 #ifdef MTCORE_ENABLE_SYNC_ALL_OPT
     /* Optimization for MPI implementations that have optimized lock_all.
@@ -123,7 +137,7 @@ int MPI_Win_lock(int lock_type, int target_rank, int assert, MPI_Win win)
     }
 #endif
 
-
+  lock_done:
     /* Indicate epoch status, later operations will be redirected to uh_wins
      * until lock/lockall counters decrease to 0 .*/
     uh_win->epoch_stat = MTCORE_WIN_EPOCH_LOCK;

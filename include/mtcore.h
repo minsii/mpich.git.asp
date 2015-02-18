@@ -133,6 +133,9 @@ typedef struct MTCORE_Env_param {
     MTCORE_Load_opt load_opt;   /* runtime load balancing options */
     MTCORE_Load_lock load_lock; /* how to grant locks for runtime load balancing */
     MTCORE_Lock_binding lock_binding;   /* how to handle locks */
+    int auto_async_sched;       /* automatic asynchronous progress configuration, false by default */
+    long long auto_async_sched_thr_h;
+    long long auto_async_sched_thr_l;
 } MTCORE_Env_param;
 
 
@@ -167,6 +170,11 @@ typedef enum {
     MTCORE_EPOCH_PSCW = 4,
     MTCORE_EPOCH_FENCE = 8,
 } MTCORE_Epoch_type;
+
+typedef enum {
+    MTCORE_ASYNC_STAT_ON = 0,
+    MTCORE_ASYNC_STAT_OFF = 1
+} MTCORE_Async_stat;
 
 typedef struct MTCORE_H_win_params {
     MPI_Aint size;
@@ -218,6 +226,7 @@ typedef struct MTCORE_Win_target {
     int local_user_nprocs;
     int world_rank;             /* rank in world communicator */
     int user_world_rank;        /* rank in user world communicator */
+    int uh_rank;
     int node_id;
 
     MPI_Aint wait_counter_offset;       /* counter for complete-wait synchronization. allocated in main helper. */
@@ -227,6 +236,7 @@ typedef struct MTCORE_Win_target {
     MTCORE_Win_target_seg *segs;
     int num_segs;
 
+    MTCORE_Async_stat async_stat;
 } MTCORE_Win_target;
 
 typedef struct MTCORE_Win {
@@ -736,5 +746,39 @@ static inline void MTCORE_RM_RESET_ALL()
 #define MTCORE_RM_RESET(type) {/*do nothing */}
 #define MTCORE_RM_RESET_ALL() {/*do nothing */}
 #endif
+
+/* asynchronous state scheduling */
+extern MTCORE_Async_stat MTCORE_MY_ASYNC_STAT;
+#define MTCORE_SCHED_ASYNC_THRESHOLD_DEFAULT_FREQ (1000ULL)
+
+static inline MTCORE_Async_stat MTCORE_Sched_my_async_stat()
+{
+    double time;
+    unsigned long long freq = 0;
+
+#ifdef MTCORE_ENABLE_RM
+    MTCORE_Async_stat old_state = MTCORE_MY_ASYNC_STAT;
+
+    /* schedule state by using dynamic frequency */
+    time = PMPI_Wtime() - MTCORE_RM[MTCORE_RM_COMM_FREQ].timer_sta;
+    freq = (unsigned long long) (MTCORE_RM[MTCORE_RM_COMM_FREQ].cnt / time);
+
+    if (freq >= MTCORE_ENV.auto_async_sched_thr_h) {
+        MTCORE_MY_ASYNC_STAT = MTCORE_ASYNC_STAT_OFF;
+    }
+    else if (freq <= MTCORE_ENV.auto_async_sched_thr_l) {
+        MTCORE_MY_ASYNC_STAT = MTCORE_ASYNC_STAT_ON;
+    }
+
+    if (old_state != MTCORE_MY_ASYNC_STAT) {
+        MTCORE_WARN_PRINT("Sched async state: freq =%lld, %s->%s \n",
+                          freq, (old_state == MTCORE_ASYNC_STAT_ON) ? "on" : "off",
+                          (MTCORE_MY_ASYNC_STAT == MTCORE_ASYNC_STAT_ON) ? "on" : "off");
+    }
+
+    MTCORE_RM_RESET(MTCORE_RM_COMM_FREQ);
+#endif
+    return MTCORE_MY_ASYNC_STAT;
+}
 
 #endif /* MTCORE_H_ */

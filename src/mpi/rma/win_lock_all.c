@@ -51,6 +51,16 @@ static int MTCORE_Win_mixed_lock_all_impl(int assert, MPI_Win win, MTCORE_Win * 
      * load balancing whether it is binded to that segment or not. */
     for (i = 0; i < user_nprocs; i++) {
         j = 0;
+
+        /* only lock target if it is in async-off state  */
+        if (uh_win->targets[i].async_stat == MTCORE_ASYNC_STAT_OFF) {
+            mpi_errno = PMPI_Win_lock(MPI_LOCK_SHARED, uh_win->targets[i].uh_rank, assert,
+                                      uh_win->targets[i].uh_win);
+            if (mpi_errno != MPI_SUCCESS)
+                goto fn_fail;
+            continue;
+        }
+
         for (k = 0; k < MTCORE_ENV.num_h; k++) {
             int target_h_rank_in_uh = uh_win->targets[i].h_ranks_in_uh[k];
 
@@ -64,6 +74,11 @@ static int MTCORE_Win_mixed_lock_all_impl(int assert, MPI_Win win, MTCORE_Win * 
         }
     }
 #endif
+
+    /* If local rank is in async-off state, do not need force self lock */
+    if (uh_win->targets[user_rank].async_stat == MTCORE_ASYNC_STAT_OFF) {
+        goto fn_exit;
+    }
 
     int is_local_lock_granted = 0;
     if (!uh_win->info_args.no_local_load_store &&

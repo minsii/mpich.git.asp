@@ -50,6 +50,15 @@ static int MTCORE_Win_mixed_unlock_all_impl(MPI_Win win, MTCORE_Win * uh_win)
     }
 #else
     for (i = 0; i < user_nprocs; i++) {
+
+        /* only unlock target if it is in async-off state  */
+        if (uh_win->targets[i].async_stat == MTCORE_ASYNC_STAT_OFF) {
+            mpi_errno = PMPI_Win_unlock(uh_win->targets[i].uh_rank, uh_win->targets[i].uh_win);
+            if (mpi_errno != MPI_SUCCESS)
+                goto fn_fail;
+            continue;
+        }
+
         for (k = 0; k < MTCORE_ENV.num_h; k++) {
             int target_h_rank_in_uh = uh_win->targets[i].h_ranks_in_uh[k];
 

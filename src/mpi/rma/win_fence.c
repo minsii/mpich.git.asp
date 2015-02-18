@@ -32,6 +32,17 @@ static int MTCORE_Fence_flush_all(MTCORE_Win * uh_win)
             goto fn_fail;
     }
 
+    if (MTCORE_ENV.auto_async_sched) {
+        /* flush targets which are in async-off state  */
+        for (i = 0; i < user_nprocs; i++) {
+            if (uh_win->targets[i].async_stat == MTCORE_ASYNC_STAT_OFF) {
+                mpi_errno = PMPI_Win_flush(uh_win->targets[i].uh_rank, uh_win->active_win);
+                if (mpi_errno != MPI_SUCCESS)
+                    goto fn_fail;
+            }
+        }
+    }
+
 #ifdef MTCORE_ENABLE_LOCAL_LOCK_OPT
     mpi_errno = PMPI_Win_flush(uh_win->my_rank_in_uh_comm, uh_win->active_win);
     if (mpi_errno != MPI_SUCCESS)
