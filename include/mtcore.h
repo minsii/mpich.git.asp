@@ -176,6 +176,7 @@ typedef struct MTCORE_H_win_params {
 struct MTCORE_Win_info_args {
     unsigned short no_local_load_store;
     int epoch_type;
+    int enable_async;           /* 0,1,2|0:off; 1:default on (default); 2:force on */
 };
 
 typedef struct MTCORE_OP_Segment {

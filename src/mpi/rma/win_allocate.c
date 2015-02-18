@@ -21,10 +21,33 @@ static int read_win_info(MPI_Info info, MTCORE_Win * uh_win)
     uh_win->info_args.no_local_load_store = 0;
     uh_win->info_args.epoch_type = MTCORE_EPOCH_LOCK_ALL | MTCORE_EPOCH_LOCK |
         MTCORE_EPOCH_PSCW | MTCORE_EPOCH_FENCE;
+    uh_win->info_args.enable_async = 1;
 
     if (info != MPI_INFO_NULL) {
         int info_flag = 0;
         char info_value[MPI_MAX_INFO_VAL + 1];
+
+        /* Check if user wants to turn off async */
+        memset(info_value, 0, sizeof(info_value));
+        mpi_errno = PMPI_Info_get(info, "enable_async", MPI_MAX_INFO_VAL, info_value, &info_flag);
+        if (mpi_errno != MPI_SUCCESS)
+            goto fn_fail;
+
+        if (info_flag == 1) {
+            if (!strncmp(info_value, "false", strlen("false"))) {
+                uh_win->info_args.enable_async = 0;     /* off */
+            }
+            else if (!strncmp(info_value, "true", strlen("true"))) {
+                uh_win->info_args.enable_async = 2;     /* force on */
+            }
+
+            MTCORE_DBG_PRINT("user sets enable_async=%d\n", uh_win->info_args.enable_async);
+        }
+
+        /* If async is off, no need to do any future work */
+        if (uh_win->info_args.enable_async == 0) {
+            goto fn_exit;
+        }
 
         /* Check if we are allowed to ignore force-lock for local target,
          * require force-lock by default. */
@@ -692,6 +715,21 @@ int MPI_Win_allocate(MPI_Aint size, int disp_unit, MPI_Info info,
 
     uh_win = calloc(1, sizeof(MTCORE_Win));
 
+    mpi_errno = read_win_info(info, uh_win);
+    if (mpi_errno != MPI_SUCCESS)
+        goto fn_fail;
+
+    /* If user turns off asynchronous redirection, simply return normal window; */
+    if (uh_win->info_args.enable_async == 0) {
+        if (user_comm == MPI_COMM_WORLD)
+            user_comm = MTCORE_COMM_USER_WORLD;
+
+        mpi_errno = PMPI_Win_allocate(size, disp_unit, info, user_comm, baseptr, win);
+        MTCORE_DBG_PRINT("User turns off async in win_allocate, return normal win 0x%x\n", *win);
+
+        free(uh_win);
+        goto fn_exit;
+    }
     /* If user specifies comm_world directly, use user comm_world instead;
      * else this communicator directly, because it should be created from user comm_world */
     if (user_comm == MPI_COMM_WORLD) {
@@ -790,9 +828,6 @@ int MPI_Win_allocate(MPI_Aint size, int disp_unit, MPI_Info info,
     }
 #endif
 
-    mpi_errno = read_win_info(info, uh_win);
-    if (mpi_errno != MPI_SUCCESS)
-        goto fn_fail;
 
     /* Notify Helpers start and create user root + helpers communicator for
      * internal information exchange between users and helpers. */
