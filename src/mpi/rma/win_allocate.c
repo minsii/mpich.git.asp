@@ -716,15 +716,15 @@ static int clean_up_uh_win(int user_nprocs, MTCORE_Win * uh_win)
 {
     int i;
 
-    if (uh_win->local_uh_win)
+    if (uh_win->local_uh_win && uh_win->local_uh_win != MPI_WIN_NULL)
         PMPI_Win_free(&uh_win->local_uh_win);
-    if (uh_win->win)
+    if (uh_win->win && uh_win->win != MPI_WIN_NULL)
         PMPI_Win_free(&uh_win->win);
-    if (uh_win->active_win)
+    if (uh_win->active_win && uh_win->active_win != MPI_WIN_NULL)
         PMPI_Win_free(&uh_win->active_win);
     if (uh_win->num_uh_wins > 0 && uh_win->uh_wins) {
         for (i = 0; i < uh_win->num_uh_wins; i++) {
-            if (uh_win->uh_wins)
+            if (uh_win->uh_wins[i] && uh_win->uh_wins[i] != MPI_WIN_NULL)
                 PMPI_Win_free(&uh_win->uh_wins[i]);
         }
     }
@@ -733,20 +733,20 @@ static int clean_up_uh_win(int user_nprocs, MTCORE_Win * uh_win)
         PMPI_Comm_free(&uh_win->ur_h_comm);
     if (uh_win->local_uh_comm && uh_win->local_uh_comm != MTCORE_COMM_LOCAL)
         PMPI_Comm_free(&uh_win->local_uh_comm);
-    if (uh_win->uh_comm != MPI_COMM_NULL)
+    if (uh_win->uh_comm && uh_win->uh_comm != MPI_COMM_NULL)
         PMPI_Comm_free(&uh_win->uh_comm);
-    if (uh_win->uh_group != MPI_GROUP_NULL)
+    if (uh_win->uh_group && uh_win->uh_group != MPI_GROUP_NULL)
         PMPI_Group_free(&uh_win->uh_group);
     if (uh_win->local_user_comm && uh_win->local_user_comm != MTCORE_COMM_USER_LOCAL)
         PMPI_Comm_free(&uh_win->local_user_comm);
     if (uh_win->user_root_comm && uh_win->user_root_comm != MTCORE_COMM_UR_WORLD)
         PMPI_Comm_free(&uh_win->user_root_comm);
 
-    if (uh_win->local_uh_group != MPI_GROUP_NULL)
+    if (uh_win->local_uh_group && uh_win->local_uh_group != MPI_GROUP_NULL)
         PMPI_Group_free(&uh_win->local_uh_group);
-    if (uh_win->uh_group != MPI_GROUP_NULL)
+    if (uh_win->uh_group && uh_win->uh_group != MPI_GROUP_NULL)
         PMPI_Group_free(&uh_win->uh_group);
-    if (uh_win->user_group != MPI_GROUP_NULL)
+    if (uh_win->user_group && uh_win->user_group != MPI_GROUP_NULL)
         PMPI_Group_free(&uh_win->user_group);
 
 #if defined(MTCORE_ENABLE_RUNTIME_LOAD_OPT)

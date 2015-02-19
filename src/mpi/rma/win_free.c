@@ -72,7 +72,7 @@ int MPI_Win_free(MPI_Win * win)
     if (uh_win->num_uh_wins > 0 && uh_win->uh_wins) {
         MTCORE_DBG_PRINT("\t free uh windows\n");
         for (i = 0; i < uh_win->num_uh_wins; i++) {
-            if (uh_win->uh_wins[i]) {
+            if (uh_win->uh_wins[i] && uh_win->uh_wins[i] != MPI_WIN_NULL) {
                 mpi_errno = PMPI_Win_free(&uh_win->uh_wins[i]);
                 if (mpi_errno != MPI_SUCCESS)
                     goto fn_fail;
@@ -80,21 +80,21 @@ int MPI_Win_free(MPI_Win * win)
         }
     }
 
-    if (uh_win->active_win) {
+    if (uh_win->active_win && uh_win->active_win != MPI_WIN_NULL) {
         MTCORE_DBG_PRINT("\t free active window\n");
         mpi_errno = PMPI_Win_free(&uh_win->active_win);
         if (mpi_errno != MPI_SUCCESS)
             goto fn_fail;
     }
 
-    if (uh_win->local_uh_win) {
+    if (uh_win->local_uh_win && uh_win->local_uh_win != MPI_WIN_NULL) {
         MTCORE_DBG_PRINT("\t free shared window\n");
         mpi_errno = PMPI_Win_free(&uh_win->local_uh_win);
         if (mpi_errno != MPI_SUCCESS)
             goto fn_fail;
     }
 
-    if (uh_win->user_group != MPI_GROUP_NULL) {
+    if (uh_win->user_group && uh_win->user_group != MPI_GROUP_NULL) {
         mpi_errno = PMPI_Group_free(&uh_win->user_group);
         if (mpi_errno != MPI_SUCCESS)
             goto fn_fail;
@@ -113,7 +113,7 @@ int MPI_Win_free(MPI_Win * win)
         if (mpi_errno != MPI_SUCCESS)
             goto fn_fail;
     }
-    if (uh_win->local_uh_group != MPI_GROUP_NULL) {
+    if (uh_win->local_uh_group && uh_win->local_uh_group != MPI_GROUP_NULL) {
         mpi_errno = PMPI_Group_free(&uh_win->local_uh_group);
         if (mpi_errno != MPI_SUCCESS)
             goto fn_fail;
@@ -125,7 +125,7 @@ int MPI_Win_free(MPI_Win * win)
         if (mpi_errno != MPI_SUCCESS)
             goto fn_fail;
     }
-    if (uh_win->uh_group != MPI_GROUP_NULL) {
+    if (uh_win->uh_group && uh_win->uh_group != MPI_GROUP_NULL) {
         mpi_errno = PMPI_Group_free(&uh_win->uh_group);
         if (mpi_errno != MPI_SUCCESS)
             goto fn_fail;

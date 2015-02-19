@@ -47,7 +47,7 @@ int MTCORE_H_win_free(int user_local_root, int user_nprocs, int user_local_nproc
         if (win->num_uh_wins > 0 && win->uh_wins) {
             MTCORE_H_DBG_PRINT(" free uh windows\n");
             for (i = 0; i < win->num_uh_wins; i++) {
-                if (win->uh_wins[i]) {
+                if (win->uh_wins[i] && win->uh_wins[i] != MPI_WIN_NULL) {
                     mpi_errno = PMPI_Win_free(&win->uh_wins[i]);
                     if (mpi_errno != MPI_SUCCESS)
                         goto fn_fail;
@@ -55,14 +55,14 @@ int MTCORE_H_win_free(int user_local_root, int user_nprocs, int user_local_nproc
             }
         }
 
-        if (win->active_win) {
+        if (win->active_win && win->active_win != MPI_WIN_NULL) {
             MTCORE_H_DBG_PRINT(" free active window\n");
             mpi_errno = PMPI_Win_free(&win->active_win);
             if (mpi_errno != MPI_SUCCESS)
                 goto fn_fail;
         }
 
-        if (win->local_uh_win) {
+        if (win->local_uh_win && win->local_uh_win != MPI_WIN_NULL) {
             MTCORE_H_DBG_PRINT(" free shared window\n");
             mpi_errno = PMPI_Win_free(&win->local_uh_win);
             if (mpi_errno != MPI_SUCCESS)
