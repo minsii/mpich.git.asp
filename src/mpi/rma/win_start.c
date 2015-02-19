@@ -96,7 +96,7 @@ int MPI_Win_start(MPI_Group group, int assert, MPI_Win win)
     int i;
 
     MTCORE_DBG_PRINT_FCNAME();
-    MTCORE_RM_COUNT(MTCORE_RM_COMM_FREQ);
+    MTCORE_RM_TIMER_STR(MTCORE_RM_COMM_TIME);
 
     MTCORE_Fetch_uh_win_from_cache(win, uh_win);
 
@@ -157,6 +157,7 @@ int MPI_Win_start(MPI_Group group, int assert, MPI_Win win)
     MTCORE_DBG_PRINT("Start done\n");
 
   fn_exit:
+    MTCORE_RM_TIMER_END(MTCORE_RM_COMM_TIME);
     return mpi_errno;
 
   fn_fail:

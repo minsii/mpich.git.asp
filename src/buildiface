@@ -192,8 +192,9 @@ while (<INFILE>) {
         print CFILE ")\n{\n";
 
 	if ($comm_arg >= 0) {
-	    print CFILE "${tab}MTCORE_RM_COUNT(MTCORE_RM_COMM_FREQ);\n";
-	    print CFILE "${tab}if (x$comm_arg == MPI_COMM_WORLD)\n${tab}${tab}return P$routine(";
+	    print CFILE "${tab}int mpi_errno = MPI_SUCCESS;\n";
+	    print CFILE "${tab}MTCORE_RM_TIMER_STR(MTCORE_RM_COMM_TIME);\n";
+	    print CFILE "${tab}if (x$comm_arg == MPI_COMM_WORLD)\n${tab}${tab}mpi_errno = P$routine(";
 	    for ($x = 0; $x <= $#arglist; $x++) {
 		if ($x == $comm_arg) {
 		    print CFILE "MTCORE_COMM_USER_WORLD";
@@ -208,7 +209,7 @@ while (<INFILE>) {
 		    print CFILE ", ";
 		}
 	    }
-	    print CFILE "${tab}else\n${tab}${tab}return P$routine(";
+	    print CFILE "${tab}else\n${tab}${tab}mpi_errno = P$routine(";
 	    for ($x = 0; $x <= $#arglist; $x++) {
 		print CFILE "x$x";
 		if ($x == $#arglist) {
@@ -219,7 +220,8 @@ while (<INFILE>) {
 		}
 	    }
         }
-
+        print CFILE "${tab}MTCORE_RM_TIMER_END(MTCORE_RM_COMM_TIME);\n";
+        print CFILE "${tab}return mpi_errno;\n";
         print CFILE "}\n";
     }
 

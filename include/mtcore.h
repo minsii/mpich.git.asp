@@ -714,14 +714,16 @@ extern void MTCORE_Op_segments_destroy(MTCORE_OP_Segment ** decoded_ops_ptr);
 extern int MTCORE_Fence_win_release_locks(MTCORE_Win * uh_win);
 
 typedef enum {
-    MTCORE_RM_COMM_FREQ,
+    MTCORE_RM_COMM_TIME,
     MTCORE_RM_MAX_TYPE,
 } MTCORE_Rm_type;
 
 #ifdef MTCORE_ENABLE_RM
 typedef struct {
     unsigned long long cnt;
+    double time;
     double timer_sta;
+    double interval_sta;
 } MTCORE_Rm;
 
 /* local runtime monitor */
@@ -731,10 +733,21 @@ static inline void MTCORE_RM_COUNT(MTCORE_Rm_type type)
     MTCORE_RM[type].cnt++;
 }
 
+static inline void MTCORE_RM_TIMER_STR(MTCORE_Rm_type type)
+{
+    MTCORE_RM[type].timer_sta = PMPI_Wtime();
+}
+
+static inline void MTCORE_RM_TIMER_END(MTCORE_Rm_type type)
+{
+    MTCORE_RM[type].time += PMPI_Wtime() - MTCORE_RM[type].timer_sta;
+}
+
 static inline void MTCORE_RM_RESET(MTCORE_Rm_type type)
 {
     MTCORE_RM[type].cnt = 0;
-    MTCORE_RM[type].timer_sta = PMPI_Wtime();
+    MTCORE_RM[type].time = 0;
+    MTCORE_RM[type].interval_sta = PMPI_Wtime();
 }
 
 static inline void MTCORE_RM_RESET_ALL()
@@ -743,25 +756,28 @@ static inline void MTCORE_RM_RESET_ALL()
 }
 #else
 #define MTCORE_RM_COUNT(type) {/*do nothing */}
+#define MTCORE_RM_TIMER_STR(type) {/*do nothing */}
+#define MTCORE_RM_TIMER_END(type) {/*do nothing */}
 #define MTCORE_RM_RESET(type) {/*do nothing */}
 #define MTCORE_RM_RESET_ALL() {/*do nothing */}
 #endif
 
 /* asynchronous state scheduling */
 extern MTCORE_Async_stat MTCORE_MY_ASYNC_STAT;
-#define MTCORE_SCHED_ASYNC_THRESHOLD_DEFAULT_FREQ (1000ULL)
+/* percentage of communication in a period of execution time */
+#define MTCORE_SCHED_ASYNC_THRESHOLD_DEFAULT_FREQ 50
 
 static inline MTCORE_Async_stat MTCORE_Sched_my_async_stat()
 {
-    double time;
+    double interval;
     unsigned long long freq = 0;
 
 #ifdef MTCORE_ENABLE_RM
     MTCORE_Async_stat old_state = MTCORE_MY_ASYNC_STAT;
 
     /* schedule state by using dynamic frequency */
-    time = PMPI_Wtime() - MTCORE_RM[MTCORE_RM_COMM_FREQ].timer_sta;
-    freq = (unsigned long long) (MTCORE_RM[MTCORE_RM_COMM_FREQ].cnt / time);
+    interval = PMPI_Wtime() - MTCORE_RM[MTCORE_RM_COMM_TIME].interval_sta;
+    freq = MTCORE_RM[MTCORE_RM_COMM_TIME].time / interval * 100;
 
     if (freq >= MTCORE_ENV.auto_async_sched_thr_h) {
         MTCORE_MY_ASYNC_STAT = MTCORE_ASYNC_STAT_OFF;
@@ -771,12 +787,12 @@ static inline MTCORE_Async_stat MTCORE_Sched_my_async_stat()
     }
 
     if (old_state != MTCORE_MY_ASYNC_STAT) {
-        MTCORE_WARN_PRINT("Sched async state: freq =%lld, %s->%s \n",
+        MTCORE_WARN_PRINT("Sched async state: freq =%d\%, %s->%s \n",
                           freq, (old_state == MTCORE_ASYNC_STAT_ON) ? "on" : "off",
                           (MTCORE_MY_ASYNC_STAT == MTCORE_ASYNC_STAT_ON) ? "on" : "off");
     }
 
-    MTCORE_RM_RESET(MTCORE_RM_COMM_FREQ);
+    MTCORE_RM_RESET(MTCORE_RM_COMM_TIME);
 #endif
     return MTCORE_MY_ASYNC_STAT;
 }

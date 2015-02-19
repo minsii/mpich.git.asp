@@ -131,7 +131,7 @@ int MPI_Win_complete(MPI_Win win)
     int i;
 
     MTCORE_DBG_PRINT_FCNAME();
-    MTCORE_RM_COUNT(MTCORE_RM_COMM_FREQ);
+    MTCORE_RM_TIMER_STR(MTCORE_RM_COMM_TIME);
 
     MTCORE_Fetch_uh_win_from_cache(win, uh_win);
 
@@ -175,6 +175,7 @@ int MPI_Win_complete(MPI_Win win)
     MTCORE_DBG_PRINT("Complete done\n");
 
   fn_exit:
+    MTCORE_RM_TIMER_END(MTCORE_RM_COMM_TIME);
     if (uh_win->start_ranks_in_win_group)
         free(uh_win->start_ranks_in_win_group);
     uh_win->start_group = MPI_GROUP_NULL;

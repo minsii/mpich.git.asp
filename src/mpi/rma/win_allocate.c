@@ -796,7 +796,7 @@ int MPI_Win_allocate(MPI_Aint size, int disp_unit, MPI_Info info,
     int tmp_bcast_buf[2];
 
     MTCORE_DBG_PRINT_FCNAME();
-    MTCORE_RM_COUNT(MTCORE_RM_COMM_FREQ);
+    MTCORE_RM_TIMER_STR(MTCORE_RM_COMM_TIME);
 
     uh_win = calloc(1, sizeof(MTCORE_Win));
 
@@ -1054,7 +1054,7 @@ int MPI_Win_allocate(MPI_Aint size, int disp_unit, MPI_Info info,
     MTCORE_Cache_uh_win(uh_win->win, uh_win);
 
   fn_exit:
-
+    MTCORE_RM_TIMER_END(MTCORE_RM_COMM_TIME);
     if (tmp_gather_buf)
         free(tmp_gather_buf);
 
