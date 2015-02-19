@@ -136,18 +136,18 @@ static int MTCORE_Initialize_env()
         /* Read user defined thresholds */
         val = getenv("MTCORE_AUTO_ASYNC_SCHED_THR_H");
         if (val && strlen(val)) {
-            MTCORE_ENV.auto_async_sched_thr_h = atoll(val);
+            MTCORE_ENV.auto_async_sched_thr_h = atoi(val);
             if (MTCORE_ENV.auto_async_sched_thr_h <= 0) {
-                fprintf(stderr, "Wrong MTCORE_AUTO_ASYNC_SCHED_THR_H %lld\n",
+                fprintf(stderr, "Wrong MTCORE_AUTO_ASYNC_SCHED_THR_H %d\n",
                         MTCORE_ENV.auto_async_sched_thr_h);
                 return -1;
             }
         }
         val = getenv("MTCORE_AUTO_ASYNC_SCHED_THR_L");
         if (val && strlen(val)) {
-            MTCORE_ENV.auto_async_sched_thr_l = atoll(val);
+            MTCORE_ENV.auto_async_sched_thr_l = atoi(val);
             if (MTCORE_ENV.auto_async_sched_thr_l <= 0) {
-                fprintf(stderr, "Wrong MTCORE_AUTO_ASYNC_SCHED_THR_L %lld\n",
+                fprintf(stderr, "Wrong MTCORE_AUTO_ASYNC_SCHED_THR_L %d\n",
                         MTCORE_ENV.auto_async_sched_thr_l);
                 return -1;
             }
@@ -159,7 +159,7 @@ static int MTCORE_Initialize_env()
         }
 
         if (MTCORE_MY_RANK_IN_WORLD == 0) {
-            MTCORE_WARN_PRINT("MTCORE_AUTO_ASYNC_SCHED on, high %lld, low %lld \n",
+            MTCORE_WARN_PRINT("MTCORE_AUTO_ASYNC_SCHED on, high %d%% , low %d%% \n",
                               MTCORE_ENV.auto_async_sched_thr_h, MTCORE_ENV.auto_async_sched_thr_l);
         }
     }

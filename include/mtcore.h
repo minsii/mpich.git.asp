@@ -134,8 +134,8 @@ typedef struct MTCORE_Env_param {
     MTCORE_Load_lock load_lock; /* how to grant locks for runtime load balancing */
     MTCORE_Lock_binding lock_binding;   /* how to handle locks */
     int auto_async_sched;       /* automatic asynchronous progress configuration, false by default */
-    long long auto_async_sched_thr_h;
-    long long auto_async_sched_thr_l;
+    int auto_async_sched_thr_h;
+    int auto_async_sched_thr_l;
 } MTCORE_Env_param;
 
 
@@ -770,7 +770,7 @@ extern MTCORE_Async_stat MTCORE_MY_ASYNC_STAT;
 static inline MTCORE_Async_stat MTCORE_Sched_my_async_stat()
 {
     double interval;
-    unsigned long long freq = 0;
+    int freq = 0;
 
 #ifdef MTCORE_ENABLE_RM
     MTCORE_Async_stat old_state = MTCORE_MY_ASYNC_STAT;
@@ -787,7 +787,7 @@ static inline MTCORE_Async_stat MTCORE_Sched_my_async_stat()
     }
 
     if (old_state != MTCORE_MY_ASYNC_STAT) {
-        MTCORE_WARN_PRINT("Sched async state: freq =%d\%, %s->%s \n",
+        MTCORE_WARN_PRINT("Sched async state: freq =%d%%, %s->%s \n",
                           freq, (old_state == MTCORE_ASYNC_STAT_ON) ? "on" : "off",
                           (MTCORE_MY_ASYNC_STAT == MTCORE_ASYNC_STAT_ON) ? "on" : "off");
     }
