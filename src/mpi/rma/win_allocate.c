@@ -901,8 +901,7 @@ int MPI_Win_allocate(MPI_Aint size, int disp_unit, MPI_Info info,
         uh_win->targets[i].user_world_rank = (int) tmp_gather_buf[tmp_gather_cnt * i + 4];
         uh_win->targets[i].node_id = (int) tmp_gather_buf[tmp_gather_cnt * i + 5];
         uh_win->targets[i].local_user_nprocs = (int) tmp_gather_buf[tmp_gather_cnt * i + 6];
-        uh_win->targets[i].async_stat = (MTCORE_Async_stat) tmp_gather_buf[tmp_gather_cnt
-                                                                           * user_rank + 7];
+        uh_win->targets[i].async_stat = (MTCORE_Async_stat) tmp_gather_buf[tmp_gather_cnt * i + 7];
         all_targets_async_off &= (uh_win->targets[i].async_stat == MTCORE_ASYNC_STAT_OFF);
 
         /* Calculate the maximum number of processes per node */
