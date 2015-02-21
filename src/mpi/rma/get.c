@@ -193,7 +193,6 @@ int MPI_Get(void *origin_addr, int origin_count,
     MTCORE_Win *uh_win;
 
     MTCORE_DBG_PRINT_FCNAME();
-    MTCORE_RM_TIMER_STR(MTCORE_RM_COMM_TIME);
 
     MTCORE_Fetch_uh_win_from_cache(win, uh_win);
 
@@ -222,7 +221,6 @@ int MPI_Get(void *origin_addr, int origin_count,
     }
 
   fn_exit:
-    MTCORE_RM_TIMER_END(MTCORE_RM_COMM_TIME);
     return mpi_errno;
 
   fn_fail:
