@@ -32,8 +32,9 @@ static int MTCORE_Fence_flush_all(MTCORE_Win * uh_win)
             goto fn_fail;
     }
 
-    if (MTCORE_ENV.auto_async_sched) {
-        /* flush targets which are in async-off state  */
+    if (uh_win->info_args.async_config == MTCORE_ASYNC_CONFIG_AUTO) {
+        /* flush targets which are in async-off state. Only happen with automatic
+         * asynchronous configuration. */
         for (i = 0; i < user_nprocs; i++) {
             if (uh_win->targets[i].async_stat == MTCORE_ASYNC_STAT_OFF) {
                 mpi_errno = PMPI_Win_flush(uh_win->targets[i].uh_rank, uh_win->active_win);

@@ -21,7 +21,7 @@ static int read_win_info(MPI_Info info, MTCORE_Win * uh_win)
     uh_win->info_args.no_local_load_store = 0;
     uh_win->info_args.epoch_type = MTCORE_EPOCH_LOCK_ALL | MTCORE_EPOCH_LOCK |
         MTCORE_EPOCH_PSCW | MTCORE_EPOCH_FENCE;
-    uh_win->info_args.enable_async = 1;
+    uh_win->info_args.async_config = MTCORE_ENV.default_async_config;
 
     if (info != MPI_INFO_NULL) {
         int info_flag = 0;
@@ -29,23 +29,32 @@ static int read_win_info(MPI_Info info, MTCORE_Win * uh_win)
 
         /* Check if user wants to turn off async */
         memset(info_value, 0, sizeof(info_value));
-        mpi_errno = PMPI_Info_get(info, "enable_async", MPI_MAX_INFO_VAL, info_value, &info_flag);
+        mpi_errno = PMPI_Info_get(info, "async_config", MPI_MAX_INFO_VAL, info_value, &info_flag);
         if (mpi_errno != MPI_SUCCESS)
             goto fn_fail;
 
         if (info_flag == 1) {
-            if (!strncmp(info_value, "false", strlen("false"))) {
-                uh_win->info_args.enable_async = 0;     /* off */
+            if (!strncmp(info_value, "on", strlen("on"))
+                || !strncmp(info_value, "ON", strlen("ON"))) {
+                uh_win->info_args.async_config = MTCORE_ASYNC_CONFIG_ON;
+
             }
-            else if (!strncmp(info_value, "true", strlen("true"))) {
-                uh_win->info_args.enable_async = 2;     /* force on */
+            else if (!strncmp(info_value, "off", strlen("off"))
+                     || !strncmp(info_value, "OFF", strlen("OFF"))) {
+                uh_win->info_args.async_config = MTCORE_ASYNC_CONFIG_OFF;
+
+            }
+            else if (!strncmp(info_value, "auto", strlen("auto"))
+                     || !strncmp(info_value, "AUTO", strlen("AUTO"))) {
+                uh_win->info_args.async_config = MTCORE_ASYNC_CONFIG_AUTO;
             }
 
-            MTCORE_DBG_PRINT("user sets enable_async=%d\n", uh_win->info_args.enable_async);
+            MTCORE_DBG_PRINT("user sets per window async_config=%s\n",
+                             MTCORE_Get_async_config_str(uh_win->info_args.async_config));
         }
 
         /* If async is off, no need to do any future work */
-        if (uh_win->info_args.enable_async == 0) {
+        if (uh_win->info_args.async_config == MTCORE_ASYNC_CONFIG_OFF) {
             goto fn_exit;
         }
 
@@ -805,20 +814,23 @@ int MPI_Win_allocate(MPI_Aint size, int disp_unit, MPI_Info info,
         goto fn_fail;
 
     /* If user turns off asynchronous redirection, simply return normal window; */
-    if (uh_win->info_args.enable_async == 0) {
+    if (uh_win->info_args.async_config == MTCORE_ASYNC_CONFIG_OFF) {
         if (user_comm == MPI_COMM_WORLD)
             user_comm = MTCORE_COMM_USER_WORLD;
 
         mpi_errno = PMPI_Win_allocate(size, disp_unit, info, user_comm, baseptr, win);
+        if (mpi_errno != MPI_SUCCESS)
+            goto fn_fail;
+
         MTCORE_DBG_PRINT("User turns off async in win_allocate, return normal win 0x%x\n", *win);
 
         free(uh_win);
         goto fn_exit;
     }
 
-    /* Only schedule local asynchronous state when user enables auto_async_config
-     * and does not force this window to turn on the asynchronous redirection.*/
-    if (MTCORE_ENV.auto_async_sched && uh_win->info_args.enable_async != 2) {
+    /* Only schedule local asynchronous state when user enables automatic
+     * asynchronous configuration .*/
+    if (uh_win->info_args.async_config == MTCORE_ASYNC_CONFIG_AUTO) {
         my_async_stat = MTCORE_Sched_my_async_stat();
     }
 

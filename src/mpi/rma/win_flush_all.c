@@ -140,8 +140,9 @@ int MPI_Win_flush_all(MPI_Win win)
                 goto fn_fail;
         }
 
-        if (MTCORE_ENV.auto_async_sched) {
-            /* flush targets which are in async-off state  */
+        if (uh_win->info_args.async_config == MTCORE_ASYNC_CONFIG_AUTO) {
+            /* flush targets which are in async-off state. Only happen with automatic
+             * asynchronous configuration.*/
             for (i = 0; i < user_nprocs; i++) {
                 if (uh_win->targets[i].async_stat == MTCORE_ASYNC_STAT_OFF) {
                     mpi_errno = PMPI_Win_flush(uh_win->targets[i].uh_rank, uh_win->uh_wins[0]);

@@ -127,13 +127,20 @@ typedef enum {
 #define MTCORE_DEFAULT_SEG_SIZE 4096;
 #define MTCORE_DEFAULT_NUM_HELPER 1
 
+typedef enum {
+    MTCORE_ASYNC_CONFIG_ON = 0,
+    MTCORE_ASYNC_CONFIG_OFF = 1,
+    MTCORE_ASYNC_CONFIG_AUTO = 2,
+} MTCORE_Async_config;
+
 typedef struct MTCORE_Env_param {
     int num_h;
     int seg_size;               /* segment size in lock segment binding */
     MTCORE_Load_opt load_opt;   /* runtime load balancing options */
     MTCORE_Load_lock load_lock; /* how to grant locks for runtime load balancing */
     MTCORE_Lock_binding lock_binding;   /* how to handle locks */
-    int auto_async_sched;       /* automatic asynchronous progress configuration, false by default */
+    MTCORE_Async_config default_async_config;   /* default asynchronous configure value,
+                                                 * overwritten by per window info hint */
     int auto_async_sched_thr_h;
     int auto_async_sched_thr_l;
 } MTCORE_Env_param;
@@ -184,7 +191,8 @@ typedef struct MTCORE_H_win_params {
 struct MTCORE_Win_info_args {
     unsigned short no_local_load_store;
     int epoch_type;
-    int enable_async;           /* 0,1,2|0:off; 1:default on (default); 2:force on */
+    MTCORE_Async_config async_config;   /* use global asynchronous configure by default,
+                                         * overwritten by per window info hint */
 };
 
 typedef struct MTCORE_OP_Segment {
@@ -797,4 +805,23 @@ static inline MTCORE_Async_stat MTCORE_Sched_my_async_stat()
     return MTCORE_MY_ASYNC_STAT;
 }
 
+static inline const char *MTCORE_Get_async_config_str(MTCORE_Async_config config)
+{
+    const char *async_config_str;
+    switch (config) {
+    case MTCORE_ASYNC_CONFIG_ON:
+        async_config_str = "on";
+        break;
+    case MTCORE_ASYNC_CONFIG_OFF:
+        async_config_str = "off";
+        break;
+    case MTCORE_ASYNC_CONFIG_AUTO:
+        async_config_str = "auto";
+        break;
+    default:
+        async_config_str = "none";
+        break;
+    }
+    return async_config_str;
+}
 #endif /* MTCORE_H_ */

@@ -120,19 +120,21 @@ static int MTCORE_Initialize_env()
     MTCORE_ENV.load_lock = MTCORE_LOAD_LOCK_NATURE;
 #endif
 
-    MTCORE_ENV.auto_async_sched = 0;
+    MTCORE_ENV.default_async_config = MTCORE_ASYNC_CONFIG_ON;
     MTCORE_ENV.auto_async_sched_thr_h = MTCORE_SCHED_ASYNC_THRESHOLD_DEFAULT_FREQ;
     MTCORE_ENV.auto_async_sched_thr_l = MTCORE_SCHED_ASYNC_THRESHOLD_DEFAULT_FREQ;
 
-    val = getenv("MTCORE_AUTO_ASYNC_SCHED");
+    val = getenv("MTCORE_ASYNC_CONFIG");
     if (val && strlen(val)) {
-        if (!strncmp(val, "y", strlen("y")) || !strncmp(val, "Y", strlen("Y"))) {
-            MTCORE_ENV.auto_async_sched = 1;
+        if (!strncmp(val, "off", strlen("off")) || !strncmp(val, "OFF", strlen("OFF"))) {
+            MTCORE_ENV.default_async_config = MTCORE_ASYNC_CONFIG_OFF;
+        }
+        else if (!strncmp(val, "auto", strlen("auto")) || !strncmp(val, "AUTO", strlen("AUTO"))) {
+            MTCORE_ENV.default_async_config = MTCORE_ASYNC_CONFIG_AUTO;
         }
     }
 
-    if (MTCORE_ENV.auto_async_sched == 1) {
-
+    if (MTCORE_ENV.default_async_config == MTCORE_ASYNC_CONFIG_AUTO) {
         /* Read user defined thresholds */
         val = getenv("MTCORE_AUTO_ASYNC_SCHED_THR_H");
         if (val && strlen(val)) {
@@ -157,10 +159,14 @@ static int MTCORE_Initialize_env()
             /* Disable two-level threshold */
             MTCORE_ENV.auto_async_sched_thr_l = MTCORE_ENV.auto_async_sched_thr_h;
         }
+    }
 
-        if (MTCORE_MY_RANK_IN_WORLD == 0) {
-            MTCORE_WARN_PRINT("MTCORE_AUTO_ASYNC_SCHED on, high %d%% , low %d%% \n",
-                              MTCORE_ENV.auto_async_sched_thr_h, MTCORE_ENV.auto_async_sched_thr_l);
+    if (MTCORE_MY_RANK_IN_WORLD == 0) {
+        MTCORE_WARN_PRINT("MTCORE_ASYNC_CONFIG=%s\n",
+                          MTCORE_Get_async_config_str(MTCORE_ENV.default_async_config));
+        if (MTCORE_ENV.default_async_config == MTCORE_ASYNC_CONFIG_AUTO) {
+            MTCORE_WARN_PRINT("\t\t high %d%% , low %d%%\n", MTCORE_ENV.auto_async_sched_thr_h,
+                              MTCORE_ENV.auto_async_sched_thr_l);
         }
     }
 
