@@ -134,40 +134,35 @@ static int MTCORE_Initialize_env()
         }
     }
 
-    if (MTCORE_ENV.default_async_config == MTCORE_ASYNC_CONFIG_AUTO) {
-        /* Read user defined thresholds */
-        val = getenv("MTCORE_AUTO_ASYNC_SCHED_THR_H");
-        if (val && strlen(val)) {
-            MTCORE_ENV.auto_async_sched_thr_h = atoi(val);
-            if (MTCORE_ENV.auto_async_sched_thr_h <= 0) {
-                fprintf(stderr, "Wrong MTCORE_AUTO_ASYNC_SCHED_THR_H %d\n",
-                        MTCORE_ENV.auto_async_sched_thr_h);
-                return -1;
-            }
+    /* Read user defined thresholds */
+    val = getenv("MTCORE_AUTO_ASYNC_SCHED_THR_H");
+    if (val && strlen(val)) {
+        MTCORE_ENV.auto_async_sched_thr_h = atoi(val);
+        if (MTCORE_ENV.auto_async_sched_thr_h <= 0) {
+            fprintf(stderr, "Wrong MTCORE_AUTO_ASYNC_SCHED_THR_H %d\n",
+                    MTCORE_ENV.auto_async_sched_thr_h);
+            return -1;
         }
-        val = getenv("MTCORE_AUTO_ASYNC_SCHED_THR_L");
-        if (val && strlen(val)) {
-            MTCORE_ENV.auto_async_sched_thr_l = atoi(val);
-            if (MTCORE_ENV.auto_async_sched_thr_l <= 0) {
-                fprintf(stderr, "Wrong MTCORE_AUTO_ASYNC_SCHED_THR_L %d\n",
-                        MTCORE_ENV.auto_async_sched_thr_l);
-                return -1;
-            }
-        }
-
-        if (MTCORE_ENV.auto_async_sched_thr_l > MTCORE_ENV.auto_async_sched_thr_h) {
-            /* Disable two-level threshold */
-            MTCORE_ENV.auto_async_sched_thr_l = MTCORE_ENV.auto_async_sched_thr_h;
+    }
+    val = getenv("MTCORE_AUTO_ASYNC_SCHED_THR_L");
+    if (val && strlen(val)) {
+        MTCORE_ENV.auto_async_sched_thr_l = atoi(val);
+        if (MTCORE_ENV.auto_async_sched_thr_l <= 0) {
+            fprintf(stderr, "Wrong MTCORE_AUTO_ASYNC_SCHED_THR_L %d\n",
+                    MTCORE_ENV.auto_async_sched_thr_l);
+            return -1;
         }
     }
 
+    if (MTCORE_ENV.auto_async_sched_thr_l > MTCORE_ENV.auto_async_sched_thr_h) {
+        /* Disable two-level threshold */
+        MTCORE_ENV.auto_async_sched_thr_l = MTCORE_ENV.auto_async_sched_thr_h;
+    }
+
     if (MTCORE_MY_RANK_IN_WORLD == 0) {
-        MTCORE_WARN_PRINT("MTCORE_ASYNC_CONFIG=%s\n",
-                          MTCORE_Get_async_config_str(MTCORE_ENV.default_async_config));
-        if (MTCORE_ENV.default_async_config == MTCORE_ASYNC_CONFIG_AUTO) {
-            MTCORE_WARN_PRINT("\t\t high %d%% , low %d%%\n", MTCORE_ENV.auto_async_sched_thr_h,
-                              MTCORE_ENV.auto_async_sched_thr_l);
-        }
+        MTCORE_WARN_PRINT("MTCORE_ASYNC_CONFIG=%s,  high %d%% , low %d%%\n",
+                          MTCORE_Get_async_config_str(MTCORE_ENV.default_async_config),
+                          MTCORE_ENV.auto_async_sched_thr_h, MTCORE_ENV.auto_async_sched_thr_l);
     }
 
     MTCORE_DBG_PRINT("ENV: seg_size=%d, lock_binding=%d, load_lock=%d, load_opt=%d, "
